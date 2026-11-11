@@ -1,37 +1,16 @@
-name: Build Flutter APK
+name: confahub
+description: VPN Client with Liquid Glass
+publish_to: 'none'
+version: 1.0.0+1
 
-on:
-  push:
-    branches: [ "main" ]
+environment:
+  sdk: '>=3.13.0 <4.0.0'
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  glassmorphism: ^3.0.0
 
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'zulu'
-        java-version: '17'
-
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        channel: 'stable'
-
-    - name: Create Flutter project structure
-      run: |
-        flutter create . --project-name confahub
-        flutter pub get
-
-    - name: Build APK
-      run: flutter build apk --release
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: confahub-apk
-        path: build/app/outputs/flutter-apk/app-release.apk
+flutter:
+  uses-material-design: true
