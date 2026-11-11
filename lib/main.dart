@@ -7,16 +7,16 @@ void main() {
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
   );
-  runApp(const ConfahubApp());
+  runApp(const EclipsApp());
 }
 
-class ConfahubApp extends StatelessWidget {
-  const ConfahubApp({super.key});
+class EclipsApp extends StatelessWidget {
+  const EclipsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Confahub',
+      title: 'Eclips',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
