@@ -1,4 +1,4 @@
-name: Build Flutter APK
+name: Build Eclips APK
 
 on:
   push:
@@ -23,9 +23,13 @@ jobs:
         channel: 'stable'
 
     - name: Create Flutter project structure
-      run: |
-        flutter create . --project-name confahub
-        flutter pub get
+      run: flutter create . --project-name eclips
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    - name: Generate app icons
+      run: dart run flutter_launcher_icons
 
     - name: Build APK
       run: flutter build apk --release
@@ -33,5 +37,5 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: confahub-apk
+        name: eclips-apk
         path: build/app/outputs/flutter-apk/app-release.apk
