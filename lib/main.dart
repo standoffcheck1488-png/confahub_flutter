@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:wireguard_flutter/wireguard_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui';
-import 'dart:math';
 import 'dart:convert';
 
 void main() {
@@ -32,7 +30,6 @@ class ConfahubApp extends StatelessWidget {
   }
 }
 
-// Модель WireGuard сервера
 class WgServer {
   String id;
   String name;
@@ -42,7 +39,6 @@ class WgServer {
   String allowedIps;
   String dns;
   String flag;
-  bool isConnected;
 
   WgServer({
     required this.id,
@@ -53,7 +49,6 @@ class WgServer {
     this.allowedIps = '0.0.0.0/0',
     this.dns = '1.1.1.1',
     this.flag = '🌍',
-    this.isConnected = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -89,9 +84,10 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   List<WgServer> servers = [];
-  int? connectedServerId;
+  String? connectedServerId;
   bool isConnecting = false;
-  final WireguardFlutter _wireguard = WireguardFlutter();
+
+  static const MethodChannel _vpnChannel = MethodChannel('com.confahub.app/vpn');
 
   @override
   void initState() {
@@ -101,20 +97,13 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
       duration: const Duration(milliseconds: 1500),
     )..repeat();
     _loadServers();
-    _initWireguard();
-  }
-
-  Future<void> _initWireguard() async {
-    await _wireguard.init();
   }
 
   Future<void> _loadServers() async {
     final prefs = await SharedPreferences.getInstance();
     final serversJson = prefs.getStringList('servers') ?? [];
     setState(() {
-      servers = serversJson
-          .map((e) => WgServer.fromJson(jsonDecode(e)))
-          .toList();
+      servers = serversJson.map((e) => WgServer.fromJson(jsonDecode(e))).toList();
     });
   }
 
@@ -125,9 +114,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _connectToServer(WgServer server) async {
-    setState(() {
-      isConnecting = true;
-    });
+    setState(() => isConnecting = true);
 
     try {
       final config = '''
@@ -143,35 +130,32 @@ AllowedIPs = ${server.allowedIps}
 PersistentKeepalive = 25
 ''';
 
-      await _wireguard.startVpn(
-        serverName: server.name,
-        wgQuickConfig: config,
-        providerBundleIdentifier: 'com.confahub.app',
-      );
+      await _vpnChannel.invokeMethod('startVpn', {
+        'name': server.name,
+        'config': config,
+      });
 
       setState(() {
         connectedServerId = server.id;
         isConnecting = false;
-        servers.forEach((s) => s.isConnected = (s.id == server.id));
       });
     } catch (e) {
-      setState(() {
-        isConnecting = false;
-      });
+      setState(() => isConnecting = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка подключения: $e')),
+          SnackBar(content: Text('Ошибка: $e')),
         );
       }
     }
   }
 
   Future<void> _disconnect() async {
-    await _wireguard.stopVpn();
+    try {
+      await _vpnChannel.invokeMethod('stopVpn');
+    } catch (e) {}
     setState(() {
       connectedServerId = null;
       isConnecting = false;
-      servers.forEach((s) => s.isConnected = false);
     });
   }
 
@@ -193,55 +177,32 @@ PersistentKeepalive = 25
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
             child: Container(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                24,
-                24,
-                MediaQuery.of(context).viewInsets.bottom + 24,
-              ),
+              padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
               decoration: BoxDecoration(
                 color: const Color(0xFF1A1A24).withOpacity(0.95),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                border: Border(
-                  top: BorderSide(color: Colors.white.withOpacity(0.2)),
-                ),
+                border: Border(top: BorderSide(color: Colors.white.withOpacity(0.2))),
               ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
+                    Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
                     const SizedBox(height: 24),
-                    const Text(
-                      'Добавить WireGuard сервер',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+                    const Text('Добавить WireGuard сервер', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white)),
                     const SizedBox(height: 24),
-                    _buildGlassTextField(nameController, 'Название (например: Германия #1)'),
+                    _buildGlassTextField(nameController, 'Название'),
                     const SizedBox(height: 12),
-                    _buildGlassTextField(privateKeyController, 'Private Key (начинается с [ или буквы)'),
+                    _buildGlassTextField(privateKeyController, 'Private Key'),
                     const SizedBox(height: 12),
                     _buildGlassTextField(publicKeyController, 'Public Key сервера'),
                     const SizedBox(height: 12),
-                    _buildGlassTextField(endpointController, 'Endpoint (например: 1.2.3.4:51820)'),
+                    _buildGlassTextField(endpointController, 'Endpoint (IP:порт)'),
                     const SizedBox(height: 12),
-                    _buildGlassTextField(dnsController, 'DNS (например: 1.1.1.1)'),
+                    _buildGlassTextField(dnsController, 'DNS'),
                     const SizedBox(height: 16),
-                    const Text('Флаг страны', style: TextStyle(fontSize: 14, color: Colors.white70)),
+                    const Text('Флаг', style: TextStyle(fontSize: 14, color: Colors.white70)),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -249,14 +210,11 @@ PersistentKeepalive = 25
                         return GestureDetector(
                           onTap: () => setModalState(() => selectedFlag = flag),
                           child: Container(
-                            width: 44,
-                            height: 44,
+                            width: 44, height: 44,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: selectedFlag == flag ? const Color(0xFF7C3AED) : Colors.white.withOpacity(0.1),
-                              border: Border.all(
-                                color: selectedFlag == flag ? const Color(0xFF7C3AED) : Colors.white.withOpacity(0.2),
-                              ),
+                              border: Border.all(color: selectedFlag == flag ? const Color(0xFF7C3AED) : Colors.white.withOpacity(0.2)),
                             ),
                             child: Center(child: Text(flag, style: const TextStyle(fontSize: 22))),
                           ),
@@ -269,32 +227,24 @@ PersistentKeepalive = 25
                       height: 54,
                       child: ElevatedButton(
                         onPressed: () {
-                          if (nameController.text.isNotEmpty &&
-                              privateKeyController.text.isNotEmpty &&
-                              publicKeyController.text.isNotEmpty &&
-                              endpointController.text.isNotEmpty) {
-                            final newServer = WgServer(
-                              id: DateTime.now().millisecondsSinceEpoch.toString(),
-                              name: nameController.text,
-                              privateKey: privateKeyController.text,
-                              publicKey: publicKeyController.text,
-                              endpoint: endpointController.text,
-                              dns: dnsController.text,
-                              flag: selectedFlag,
-                            );
+                          if (nameController.text.isNotEmpty && privateKeyController.text.isNotEmpty && publicKeyController.text.isNotEmpty && endpointController.text.isNotEmpty) {
                             setState(() {
-                              servers.add(newServer);
+                              servers.add(WgServer(
+                                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                                name: nameController.text,
+                                privateKey: privateKeyController.text,
+                                publicKey: publicKeyController.text,
+                                endpoint: endpointController.text,
+                                dns: dnsController.text,
+                                flag: selectedFlag,
+                              ));
                             });
                             _saveServers();
                             Navigator.pop(context);
                           }
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF7C3AED),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          elevation: 0,
-                        ),
-                        child: const Text('Добавить сервер', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
+                        child: const Text('Добавить', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
                       ),
                     ),
                   ],
@@ -320,18 +270,9 @@ PersistentKeepalive = 25
             hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
             filled: true,
             fillColor: Colors.white.withOpacity(0.08),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.15)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 2),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.15))),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.15))),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 2)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
         ),
@@ -349,104 +290,72 @@ PersistentKeepalive = 25
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        title: const Text('Confahub', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
-        actions: [
-          IconButton(icon: const Icon(Icons.add_circle_outline, size: 28), onPressed: _showAddServerSheet),
-        ],
+        title: const Text('Confahub', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
+        actions: [IconButton(icon: const Icon(Icons.add_circle_outline, size: 28), onPressed: _showAddServerSheet)],
       ),
       body: Stack(
         children: [
-          // Фоновые блобы
           Positioned.fill(
-            child: Stack(
-              children: [
-                Positioned(top: -100, right: -100, child: Container(width: 300, height: 300, decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [const Color(0xFF7C3AED).withOpacity(0.4), const Color(0xFF7C3AED).withOpacity(0)])))),
-                Positioned(bottom: 100, left: -80, child: Container(width: 250, height: 250, decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [const Color(0xFF06B6D4).withOpacity(0.3), const Color(0xFF06B6D4).withOpacity(0)])))),
-              ],
-            ),
+            child: Stack(children: [
+              Positioned(top: -100, right: -100, child: Container(width: 300, height: 300, decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [const Color(0xFF7C3AED).withOpacity(0.4), const Color(0xFF7C3AED).withOpacity(0)])))),
+              Positioned(bottom: 100, left: -80, child: Container(width: 250, height: 250, decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [const Color(0xFF06B6D4).withOpacity(0.3), const Color(0xFF06B6D4).withOpacity(0)])))),
+            ]),
           ),
-
           CustomScrollView(
             slivers: [
               const SliverToBoxAdapter(child: SizedBox(height: 100)),
-
-              // Кнопка подключения
               SliverToBoxAdapter(
                 child: Center(
-                  child: Column(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          if (connectedServerId != null) {
-                            _disconnect();
-                          } else if (servers.isNotEmpty) {
-                            _connectToServer(servers.first);
-                          }
-                        },
-                        child: Container(
-                          width: 160,
-                          height: 160,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: connectedServerId != null
-                                ? const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF10B981), Color(0xFF059669)])
-                                : const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF7C3AED), Color(0xFF5B21B6)]),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (connectedServerId != null ? const Color(0xFF10B981) : const Color(0xFF7C3AED)).withOpacity(0.5),
-                                blurRadius: 40,
-                                spreadRadius: 5,
-                              ),
-                            ],
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              if (isConnecting)
-                                AnimatedBuilder(
-                                  animation: _pulseController,
-                                  builder: (context, child) {
-                                    return Container(
-                                      width: 160 + (_pulseController.value * 30),
-                                      height: 160 + (_pulseController.value * 30),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.white.withOpacity(1 - _pulseController.value), width: 2),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              Icon(connectedServerId != null ? Icons.check : Icons.power_settings_new, size: 60, color: Colors.white),
-                            ],
-                          ),
+                  child: Column(children: [
+                    GestureDetector(
+                      onTap: () {
+                        if (connectedServerId != null) {
+                          _disconnect();
+                        } else if (servers.isNotEmpty) {
+                          _connectToServer(servers.first);
+                        }
+                      },
+                      child: Container(
+                        width: 160, height: 160,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: connectedServerId != null
+                              ? const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF10B981), Color(0xFF059669)])
+                              : const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF7C3AED), Color(0xFF5B21B6)]),
+                          boxShadow: [BoxShadow(color: (connectedServerId != null ? const Color(0xFF10B981) : const Color(0xFF7C3AED)).withOpacity(0.5), blurRadius: 40, spreadRadius: 5)],
                         ),
+                        child: Stack(alignment: Alignment.center, children: [
+                          if (isConnecting)
+                            AnimatedBuilder(
+                              animation: _pulseController,
+                              builder: (context, child) => Container(
+                                width: 160 + (_pulseController.value * 30),
+                                height: 160 + (_pulseController.value * 30),
+                                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(1 - _pulseController.value), width: 2)),
+                              ),
+                            ),
+                          Icon(connectedServerId != null ? Icons.check : Icons.power_settings_new, size: 60, color: Colors.white),
+                        ]),
                       ),
-                      const SizedBox(height: 20),
-                      Text(connectedServer.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white)),
-                      const SizedBox(height: 4),
-                      Text(connectedServerId != null ? 'Защищено' : 'Нажмите для подключения', style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.5))),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(connectedServer.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white)),
+                    const SizedBox(height: 4),
+                    Text(connectedServerId != null ? 'Защищено' : 'Нажмите для подключения', style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.5))),
+                  ]),
                 ),
               ),
-
               const SliverToBoxAdapter(child: SizedBox(height: 30)),
-
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Серверы', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white)),
-                      Text('${servers.length} доступно', style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.5))),
-                    ],
-                  ),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Серверы', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white)),
+                    Text('${servers.length} доступно', style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.5))),
+                  ]),
                 ),
               ),
-
               const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverList(
@@ -457,13 +366,7 @@ PersistentKeepalive = 25
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 14),
                         child: GestureDetector(
-                          onTap: () {
-                            if (isConnected) {
-                              _disconnect();
-                            } else {
-                              _connectToServer(server);
-                            }
-                          },
+                          onTap: () => isConnected ? _disconnect() : _connectToServer(server),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(24),
                             child: BackdropFilter(
@@ -474,36 +377,18 @@ PersistentKeepalive = 25
                                   borderRadius: BorderRadius.circular(24),
                                   color: Colors.white.withOpacity(isConnected ? 0.15 : 0.08),
                                   border: Border.all(color: isConnected ? const Color(0xFF10B981).withOpacity(0.5) : Colors.white.withOpacity(0.15), width: 1.5),
-                                  boxShadow: [
-                                    BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8)),
-                                    if (isConnected) BoxShadow(color: const Color(0xFF10B981).withOpacity(0.3), blurRadius: 30, spreadRadius: 2),
-                                  ],
+                                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8)), if (isConnected) BoxShadow(color: const Color(0xFF10B981).withOpacity(0.3), blurRadius: 30, spreadRadius: 2)],
                                 ),
-                                child: Row(
-                                  children: [
-                                    Container(width: 48, height: 48, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.1)), child: Center(child: Text(server.flag, style: const TextStyle(fontSize: 24)))),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(server.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white)),
-                                          const SizedBox(height: 4),
-                                          Text(server.endpoint, style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.6))),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      width: 12,
-                                      height: 12,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: isConnected ? const Color(0xFF10B981) : Colors.white.withOpacity(0.3),
-                                        boxShadow: isConnected ? [BoxShadow(color: const Color(0xFF10B981).withOpacity(0.6), blurRadius: 8, spreadRadius: 2)] : null,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                child: Row(children: [
+                                  Container(width: 48, height: 48, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.1)), child: Center(child: Text(server.flag, style: const TextStyle(fontSize: 24)))),
+                                  const SizedBox(width: 16),
+                                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    Text(server.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white)),
+                                    const SizedBox(height: 4),
+                                    Text(server.endpoint, style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.6))),
+                                  ])),
+                                  Container(width: 12, height: 12, decoration: BoxDecoration(shape: BoxShape.circle, color: isConnected ? const Color(0xFF10B981) : Colors.white.withOpacity(0.3), boxShadow: isConnected ? [BoxShadow(color: const Color(0xFF10B981).withOpacity(0.6), blurRadius: 8, spreadRadius: 2)] : null)),
+                                ]),
                               ),
                             ),
                           ),
@@ -514,7 +399,6 @@ PersistentKeepalive = 25
                   ),
                 ),
               ),
-
               const SliverToBoxAdapter(child: SizedBox(height: 100)),
             ],
           ),
@@ -526,7 +410,6 @@ PersistentKeepalive = 25
   @override
   void dispose() {
     _pulseController.dispose();
-    _wireguard.stopVpn();
     super.dispose();
   }
 }
