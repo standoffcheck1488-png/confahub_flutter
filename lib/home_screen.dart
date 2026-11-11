@@ -73,7 +73,7 @@ class WgConfigParser {
   }
 
   static WgServer fromConfig(String config,
-      {String name = 'WireGuard', String flag = '🌍'}) {
+      {String name = 'Eclips', String flag = '🌍'}) {
     final parsed = parse(config);
     return WgServer(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
