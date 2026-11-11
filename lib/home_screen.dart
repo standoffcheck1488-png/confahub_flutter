@@ -102,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen>
   String? connectedServerId;
   bool isConnecting = false;
   static const MethodChannel _vpnChannel =
-      MethodChannel('com.confahub.app/vpn');
+      MethodChannel('com.eclips.app/vpn');
 
   @override
   void initState() {
@@ -281,7 +281,7 @@ PersistentKeepalive = 25
 
   void _showPasteConfigSheet() {
     final configController = TextEditingController();
-    final nameController = TextEditingController(text: 'WireGuard');
+    final nameController = TextEditingController(text: 'Eclips');
     String flag = '🌍';
     showModalBottomSheet(
       context: context,
@@ -396,7 +396,7 @@ PersistentKeepalive = 25
                             final server = WgConfigParser.fromConfig(
                               configController.text,
                               name: nameController.text.isEmpty
-                                  ? 'WireGuard'
+                                  ? 'Eclips'
                                   : nameController.text,
                               flag: flag,
                             );
@@ -433,7 +433,7 @@ PersistentKeepalive = 25
 
   void _showImportFromUrlSheet() {
     final urlController = TextEditingController();
-    final nameController = TextEditingController(text: 'WireGuard');
+    final nameController = TextEditingController(text: 'Eclips');
     String flag = '🌍';
     bool isLoading = false;
     showModalBottomSheet(
@@ -527,7 +527,7 @@ PersistentKeepalive = 25
                                   final server = WgConfigParser.fromConfig(
                                     response.body,
                                     name: nameController.text.isEmpty
-                                        ? 'WireGuard'
+                                        ? 'Eclips'
                                         : nameController.text,
                                     flag: flag,
                                   );
@@ -670,7 +670,7 @@ PersistentKeepalive = 25
                                   .millisecondsSinceEpoch
                                   .toString(),
                               name: nameController.text.isEmpty
-                                  ? 'WireGuard'
+                                  ? 'Eclips'
                                   : nameController.text,
                               privateKey: privateKeyController.text,
                               publicKey: publicKeyController.text,
@@ -751,7 +751,7 @@ PersistentKeepalive = 25
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        title: const Text('Confahub',
+        title: const Text('Eclips',
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
         actions: [
           IconButton(
