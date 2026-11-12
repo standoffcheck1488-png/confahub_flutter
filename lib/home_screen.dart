@@ -15,6 +15,7 @@ class WgServer {
   String dns;
   String flag;
   String address;
+  String mtu;
 
   WgServer({
     required this.id,
@@ -26,6 +27,7 @@ class WgServer {
     this.dns = '1.1.1.1',
     this.flag = '🌍',
     this.address = '10.0.0.2/32',
+    this.mtu = '1280',
   });
 
   Map<String, dynamic> toJson() => {
@@ -38,6 +40,7 @@ class WgServer {
         'dns': dns,
         'flag': flag,
         'address': address,
+        'mtu': mtu,
       };
 
   factory WgServer.fromJson(Map<String, dynamic> json) => WgServer(
@@ -50,6 +53,7 @@ class WgServer {
         dns: json['dns'] ?? '1.1.1.1',
         flag: json['flag'] ?? '🌍',
         address: json['address'] ?? '10.0.0.2/32',
+        mtu: json['mtu'] ?? '1280',
       );
 }
 
@@ -62,10 +66,10 @@ class WgConfigParser {
       if (line.startsWith('[') && line.endsWith(']')) {
         section = line.substring(1, line.length - 1).toLowerCase();
       } else if (line.contains('=') && section != null) {
-        final parts = line.split('=');
-        if (parts.length == 2) {
-          result['${section}.${parts[0].trim().toLowerCase()}'] = parts[1].trim();
-        }
+        final idx = line.indexOf('=');
+        final key = line.substring(0, idx).trim().toLowerCase();
+        final value = line.substring(idx + 1).trim();
+        result['${section}.${key}'] = value;
       }
     }
     return result;
@@ -83,6 +87,7 @@ class WgConfigParser {
       allowedIps: p['peer.allowedips'] ?? '0.0.0.0/0',
       dns: p['interface.dns'] ?? '1.1.1.1',
       address: p['interface.address'] ?? '10.0.0.2/32',
+      mtu: p['interface.mtu'] ?? '1280',
       flag: flag,
     );
   }
@@ -134,6 +139,7 @@ class _HomeScreenState extends State<HomeScreen>
 PrivateKey = ${server.privateKey}
 Address = ${server.address}
 DNS = ${server.dns}
+MTU = ${server.mtu}
 
 [Peer]
 PublicKey = ${server.publicKey}
@@ -152,8 +158,7 @@ PersistentKeepalive = 25
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text(
-                  'Конфиг отправлен — нажми Подключить в WireGuard')),
+              content: Text('Конфиг отправлен — выбери WireGuard')),
         );
       }
     } catch (e) {
