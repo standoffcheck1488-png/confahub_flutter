@@ -15,6 +15,14 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "openConfig" -> {
+                        val config = call.argument<String>("config") ?: ""
+                        val send = Intent(Intent.ACTION_SEND)
+                        send.type = "text/plain"
+                        send.putExtra(Intent.EXTRA_TEXT, config)
+                        startActivity(Intent.createChooser(send, "Открыть в WireGuard"))
+                        result.success(true)
+                    }
                     "startVpn" -> {
                         val prepareIntent = VpnService.prepare(this)
                         if (prepareIntent != null) {
