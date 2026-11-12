@@ -141,7 +141,7 @@ Endpoint = ${server.endpoint}
 AllowedIPs = ${server.allowedIps}
 PersistentKeepalive = 25
 ''';
-      await _vpnChannel.invokeMethod('startVpn', {
+      await _vpnChannel.invokeMethod('openConfig', {
         'name': server.name,
         'config': config,
       });
@@ -149,6 +149,13 @@ PersistentKeepalive = 25
         connectedServerId = server.id;
         isConnecting = false;
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Конфиг отправлен — нажми Подключить в WireGuard')),
+        );
+      }
     } catch (e) {
       setState(() => isConnecting = false);
       if (mounted) {
