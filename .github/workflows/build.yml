@@ -22,32 +22,28 @@ jobs:
       with:
         channel: 'stable'
 
-    - name: Create Flutter project structure
+    - name: Prepare clean project
       run: |
-        flutter create . --project-name eclips || true
-        flutter create /tmp/scaffold --project-name eclips --platforms android
-        mkdir -p android
-        cp -rn /tmp/scaffold/android/. android/ || true
-        echo "=== ANDROID TREE ==="
-        find android -maxdepth 2 | head -40
-
-    - name: Add WireGuard core dependency
-      run: |
-        echo "" >> android/app/build.gradle
-        echo "dependencies {" >> android/app/build.gradle
-        echo '    implementation("com.wireguard.android:tunnel:+")' >> android/app/build.gradle
-        echo "}" >> android/app/build.gradle
-        echo "=== BUILD.GRADLE TAIL ==="
-        tail -6 android/app/build.gradle
+        flutter create /tmp/eclips --project-name eclips --platforms android
+        cp pubspec.yaml /tmp/eclips/
+        rm -rf /tmp/eclips/lib
+        cp -r lib /tmp/eclips/
+        cp android/app/src/main/AndroidManifest.xml /tmp/eclips/android/app/src/main/AndroidManifest.xml
+        mkdir -p /tmp/eclips/android/app/src/main/kotlin/com/example/eclips
+        cp android/app/src/main/kotlin/com/example/eclips/MainActivity.kt /tmp/eclips/android/app/src/main/kotlin/com/example/eclips/MainActivity.kt
+        echo "" >> /tmp/eclips/android/app/build.gradle
+        echo "dependencies {" >> /tmp/eclips/android/app/build.gradle
+        echo '    implementation("com.wireguard.android:tunnel:+")' >> /tmp/eclips/android/app/build.gradle
+        echo "}" >> /tmp/eclips/android/app/build.gradle
 
     - name: Install dependencies
-      run: flutter pub get
+      run: cd /tmp/eclips && flutter pub get
 
     - name: Build APK
-      run: flutter build apk --release
+      run: cd /tmp/eclips && flutter build apk --release
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: eclips-apk
-        path: build/app/outputs/flutter-apk/app-release.apk
+        path: /tmp/eclips/build/app/outputs/flutter-apk/app-release.apk
