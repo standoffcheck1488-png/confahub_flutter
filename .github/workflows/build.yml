@@ -25,6 +25,14 @@ jobs:
     - name: Create Flutter project structure
       run: flutter create . --project-name eclips
 
+    - name: Add WireGuard core dependency
+      run: |
+        echo "" >> android/app/build.gradle
+        echo "dependencies {" >> android/app/build.gradle
+        echo '    implementation("com.wireguard.android:tunnel:+")' >> android/app/build.gradle
+        echo "}" >> android/app/build.gradle
+        cat android/app/build.gradle
+
     - name: Install dependencies
       run: flutter pub get
 
