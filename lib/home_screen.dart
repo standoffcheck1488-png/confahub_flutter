@@ -147,7 +147,7 @@ Endpoint = ${server.endpoint}
 AllowedIPs = ${server.allowedIps}
 PersistentKeepalive = 25
 ''';
-      await _vpnChannel.invokeMethod('openConfig', {
+      await _vpnChannel.invokeMethod('startVpn', {
         'name': server.name,
         'config': config,
       });
@@ -158,8 +158,22 @@ PersistentKeepalive = 25
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Конфиг отправлен — выбери WireGuard')),
+              content: Text('Туннель поднят 🌑 трафик идёт через сервер')),
         );
+      }
+    } on PlatformException catch (e) {
+      setState(() => isConnecting = false);
+      if (mounted) {
+        if (e.code == 'NEED_PERMISSION') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Разреши VPN в окне Android и нажми ещё раз')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка: ${e.message}')),
+          );
+        }
       }
     } catch (e) {
       setState(() => isConnecting = false);
@@ -664,7 +678,7 @@ PersistentKeepalive = 25
   }
 
   Widget _flagsRow(String selected, Function(String) onSelect) {
-    final flags = ['🇩🇪', '🇳🇱', '🇺🇸', '🇯🇵', '🇸🇬', '🇬🇧', '🇫🇷', '🇷🇺', '🌍'];
+    final flags = ['🇩', '🇳', '🇺', '🇯🇵', '🇬', '🇧', '🇷', '🇷🇺', '🌍'];
     final widgets = <Widget>[];
     for (final f in flags) {
       widgets.add(GestureDetector(
