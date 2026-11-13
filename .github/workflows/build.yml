@@ -23,7 +23,13 @@ jobs:
         channel: 'stable'
 
     - name: Create Flutter project structure
-      run: flutter create . --project-name eclips
+      run: |
+        flutter create . --project-name eclips || true
+        flutter create /tmp/scaffold --project-name eclips --platforms android
+        mkdir -p android
+        cp -rn /tmp/scaffold/android/. android/ || true
+        echo "=== ANDROID TREE ==="
+        find android -maxdepth 2 | head -40
 
     - name: Add WireGuard core dependency
       run: |
@@ -31,7 +37,8 @@ jobs:
         echo "dependencies {" >> android/app/build.gradle
         echo '    implementation("com.wireguard.android:tunnel:+")' >> android/app/build.gradle
         echo "}" >> android/app/build.gradle
-        cat android/app/build.gradle
+        echo "=== BUILD.GRADLE TAIL ==="
+        tail -6 android/app/build.gradle
 
     - name: Install dependencies
       run: flutter pub get
