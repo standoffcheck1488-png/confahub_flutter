@@ -1,0 +1,51 @@
+name: Build Eclips APK
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+
+    - name: Create Flutter project structure
+      run: flutter create . --project-name eclips
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    - name: Show wireguard_flutter plugin source
+      run: |
+        PKG=$(ls -d $HOME/.pub-cache/hosted/pub.dev/wireguard_flutter-* 2>/dev/null | head -1)
+        echo "PACKAGE DIR: $PKG"
+        echo "======== ALL FILES ========"
+        find "$PKG" -type f | head -100
+        echo "======== DART LIB ========"
+        cat "$PKG"/lib/*.dart 2>/dev/null | head -300
+        echo "======== ANDROID KOTLIN ========"
+        find "$PKG/android" -name "*.kt" -exec cat {} \; 2>/dev/null | head -300
+        echo "======== ANDROID GRADLE ========"
+        cat "$PKG/android/build.gradle" 2>/dev/null
+
+    - name: Build APK
+      run: flutter build apk --release
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: eclips-apk
+        path: build/app/outputs/flutter-apk/app-release.apk
